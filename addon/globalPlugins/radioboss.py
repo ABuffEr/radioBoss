@@ -67,12 +67,13 @@ class AddonSettings(settingsDialogs.SettingsPanel):
 		settingsSizerHelper = guiHelper.BoxSizerHelper(self, sizer=settingsSizer)
 		# Translators: label for protocol in settings
 		protocolLabelText = _("Protocol:")
-		self.protocolEdit = settingsSizerHelper.addLabeledControl(
+		protocolChoices = ("http", "https")
+		self.protocolCombo = settingsSizerHelper.addLabeledControl(
 			protocolLabelText,
-			wx.TextCtrl,
-			validator=ProtocolValidator()
+			wx.Choice,
+			choices=protocolChoices
 		)
-		self.protocolEdit.SetValue(addonConfig["protocol"])
+		self.protocolCombo.SetStringSelection(addonConfig["protocol"])
 		# Translators: label for host IP in settings
 		hostLabelText = _("Host IP:")
 		self.hostEdit = settingsSizerHelper.addLabeledControl(
@@ -99,44 +100,12 @@ class AddonSettings(settingsDialogs.SettingsPanel):
 
 	def onSave(self):
 		# Update Configuration
-		addonConfig["protocol"] = self.protocolEdit.GetValue()
+		addonConfig["protocol"] = self.protocolCombo.GetStringSelection()
 		addonConfig["host"] = self.hostEdit.GetValue()
 		addonConfig["port"] = self.portEdit.GetValue()
 		clearPwd = self.passwordEdit.GetValue()
 		encodedPwd = utils.encodeBase64String(clearPwd)
 		addonConfig["password"] = encodedPwd
-
-
-class ProtocolValidator(wx.Validator):
-
-	def __init__(self):
-		super().__init__()
-		self.Bind(wx.EVT_KILL_FOCUS, self.onLoseFocus)
-
-	def Clone(self):
-		return ProtocolValidator()
-
-	def onLoseFocus(self, evt):
-		self.Validate()
-
-	def Validate(self, win=None):
-		textCtrl = self.GetWindow()
-		text = textCtrl.GetValue()
-		if text.lower() in ("http", "https"):
-			return True
-		else:
-			ui.message(_("Please input http or https"))
-			textCtrl.SetFocus()
-			textCtrl.Clear()
-			textCtrl.Refresh()
-			eventHandler.queueEvent("gainFocus", textCtrl)
-			return False
-
-	def TransferToWindow(self):
-		return True
-
-	def TransferFromWindow(self):
-		return True
 
 
 class IPValidator(wx.Validator):
