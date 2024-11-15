@@ -18,8 +18,8 @@ Some ones are global (available even without the app in foreground), some others
 
 ### Not assigned gestures
 
-* reports elapsed time of current playback song (global);
-* reports remaining time of current playback song (global).
+* reports elapsed time of the currently playing song (global);
+* reports remaining time of the currently playing song (global).
 
 
 [1]: https://www.djsoft.net

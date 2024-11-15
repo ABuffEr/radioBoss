@@ -20,7 +20,7 @@ def debugLog(message):
 		log.info(message)
 
 def errMsg(info):
-	msg = _("Something went wrong.\r\nReceived data: {data}")
+	msg = _("Something went wrong.\nAPI response: {data}")
 	return msg.format(data=info)
 
 def buildURL(action, params=None):
@@ -48,10 +48,10 @@ async def fetchURL(**kwargs):
 def getMicStatus():
 	status = asyncio.run(fetchURL(action="mic"))
 	if status == "0":
-		msg = _("Disabled mic")
+		msg = _("Mic off")
 		return msg
 	elif status == "1":
-		msg = _("Enabled mic")
+		msg = _("Mic on")
 		return msg
 	else:
 		return errMsg(status)

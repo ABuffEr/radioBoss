@@ -43,7 +43,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	@script(
 		# Translators: Message presented in input help mode.
-		description=_("Reports elapsed time of current playback song (global)"),
+		description=_("Reports elapsed time of the currently playing song (global)"),
 	)
 	def script_getSongElapsedTime(self, gesture):
 		info = apiUtils.getSongElapsedTime()
@@ -51,7 +51,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	@script(
 		# Translators: Message presented in input help mode.
-		description=_("Reports remaining time of current playback song (global)"),
+		description=_("Reports remaining time of the currently playing song (global)"),
 	)
 	def script_getSongRemainingTime(self, gesture):
 		info = apiUtils.getSongRemainingTime()
@@ -127,7 +127,7 @@ class IPValidator(wx.Validator):
 			ip_address(text)
 			return True
 		except ValueError:
-			ui.message(_("Please input a valid IP address"))
+			ui.message(_("Please enter a valid IP address"))
 			textCtrl.SetFocus()
 			textCtrl.Clear()
 			textCtrl.Refresh()
