@@ -18,8 +18,22 @@ Some ones are global (available even without the app in foreground), some others
 
 ### Not assigned gestures
 
-* reports elapsed time of the currently playing song (global);
-* reports remaining time of the currently playing song (global).
+Globals:
+
+* reports detail (artist, title, album...) of the current track (each detail can have a gesture);
+* reports elapsed time of the current track;
+* reports remaining time of the current track;
+* reports remaining time of the playlist;
+* views in a dialog all details of the current track.
+
+App only:
+
+* reports detail (artist, title, album...) of the track at focused position in the playlist (each detail can have a gesture);
+* views in a dialog all details of the track at focused position in the playlist;
+
+## Warning
+
+Notice that, to work correctly, the last two gestures require you have enabled at least the # column in playlist treeview (the column with position). All other columns can be hidden, if you want.
 
 
 [1]: https://www.djsoft.net

@@ -20,6 +20,8 @@ from scriptHandler import script
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "shared"))
 from radioBoss import apiUtils, utils
 from radioBoss.configManager import addonConfig
+from radioBoss.constants import TrackDetails
+from radioBoss.trackInfoDialog import TrackInfoDialog
 del sys.path[0]
 
 addonHandler.initTranslation()
@@ -30,7 +32,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	scriptCategory = addonHandler.getCodeAddon().manifest["summary"]
 
 	def __init__(self, *args, **kwargs):
-		super(GlobalPlugin, self).__init__(*args, **kwargs)
+		super().__init__(*args, **kwargs)
 		if globalVars.appArgs.secure:
 			return
 		self.createMenu()
@@ -41,9 +43,25 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def terminate(self):
 		gui.settingsDialogs.NVDASettingsDialog.categoryClasses.remove(AddonSettings)
 
+	@classmethod
+	def addTrackDetailScript(cls, detail):
+		scriptSuffix = detail.title()
+		scriptName = "getCurrentTrack%s" % scriptSuffix
+		funcName = "script_%s" % scriptName
+		script = lambda self, gesture: self.reportCurrentTrackDetail(detail)
+		# Translators: Message presented in input help mode.
+		description = _("Reports {detail} of the current track (global)")
+		script.__doc__ = description.format(detail=detail.lower())
+		script.__name__ = funcName
+		setattr(cls, funcName, script)
+
+	def reportCurrentTrackDetail(self, detail):
+		info = apiUtils.getCurrentTrackInfo(detail)
+		ui.message(info)
+
 	@script(
 		# Translators: Message presented in input help mode.
-		description=_("Reports elapsed time of the currently playing song (global)"),
+		description=_("Reports elapsed time of the current track (global)"),
 	)
 	def script_getSongElapsedTime(self, gesture):
 		info = apiUtils.getSongElapsedTime()
@@ -51,11 +69,39 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	@script(
 		# Translators: Message presented in input help mode.
-		description=_("Reports remaining time of the currently playing song (global)"),
+		description=_("Reports remaining time of the current track (global)"),
 	)
 	def script_getSongRemainingTime(self, gesture):
 		info = apiUtils.getSongRemainingTime()
 		ui.message(info)
+
+	@script(
+		# Translators: Message presented in input help mode.
+		description=_("Reports remaining time of the playlist (global)"),
+	)
+	def script_getPlaylistRemainingTime(self, gesture):
+		info = apiUtils.getPlaylistRemainingTime()
+		ui.message(info)
+
+	@script(
+		# Translators: Message presented in input help mode.
+		description=_("Views in a dialog all details of the current track (global)"),
+	)
+	def script_viewCurrentTrackInfo(self, gesture):
+		details = apiUtils.getFullCurrentTrackInfo()
+		if isinstance(details, str): # something went wrong
+			ui.message(details)
+			return
+		wx.CallAfter(
+			TrackInfoDialog.Run,
+			title=_("Details of the current track"),
+			details=details
+		)
+
+
+register = GlobalPlugin.addTrackDetailScript
+for detail in list(TrackDetails):
+	register(detail)
 
 
 class AddonSettings(settingsDialogs.SettingsPanel):

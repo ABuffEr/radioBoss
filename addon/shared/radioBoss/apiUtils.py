@@ -11,6 +11,7 @@ from threading import Thread
 
 from . import utils, xmlParser
 from .configManager import addonConfig
+from .constants import Actions, XPaths, TrackDetails
 
 DEBUG = False
 TEMPLATE = "{protocol}://{host}:{port}/?pass={pwd}&action={action}"
@@ -30,6 +31,8 @@ def buildURL(action, params=None):
 	encodedPwd = addonConfig["password"]
 	pwd = utils.decodeBase64String(encodedPwd)
 	url = TEMPLATE.format(protocol=protocol, host=host, port=port, pwd=pwd, action=action)
+	if params:
+		url = '&'.join([url, *params])
 	return url
 
 async def fetchURL(**kwargs):
@@ -46,36 +49,90 @@ async def fetchURL(**kwargs):
 # API calls
 
 def getMicStatus():
-	status = asyncio.run(fetchURL(action="mic"))
+	status = asyncio.run(fetchURL(action=Actions.QUERY_MIC))
 	if status == "0":
 		msg = _("Mic off")
-		return msg
 	elif status == "1":
 		msg = _("Mic on")
-		return msg
 	else:
-		return errMsg(status)
+		msg = errMsg(status)
+	return msg
 
 def getSongElapsedTime():
-	msg = _("Elapsed time: {time}")
-	info = asyncio.run(fetchURL(action="playbackinfo"))
+	msg = _("Track elapsed time: {time}")
+	info = asyncio.run(fetchURL(action=Actions.PLAYBACKINFO))
 	try:
-		pos = xmlParser.parse(info, ".Playback", "pos")
+		pos = xmlParser.parse(info, XPaths.PLAYBACK, "pos")
 		fixedPos = utils.fixedTime(pos)
 		return msg.format(time=fixedPos)
-	except:
+	except Exception as e:
+		debugLog(e)
 		return errMsg(info)
 
 def getSongRemainingTime():
-	msg = _("Remaining time: {time}")
-	info = asyncio.run(fetchURL(action="playbackinfo"))
+	msg = _("Track remaining time: {time}")
+	info = asyncio.run(fetchURL(action=Actions.PLAYBACKINFO))
 	try:
-		parsedAttrs = xmlParser.parse(info, ".Playback", ("pos", "len",))
+		parsedAttrs = xmlParser.parse(info, XPaths.PLAYBACK, ("pos", "len",))
 		pos, length = parsedAttrs.values()
 		remTime = int(length)-int(pos)
 		fixedRemTime = utils.fixedTime(remTime)
 		return msg.format(time=fixedRemTime)
-	except:
+	except Exception as e:
+		debugLog(e)
+		return errMsg(info)
+
+def getPlaylistRemainingTime():
+	msg = _("Playlist remaining time: {time}")
+	info = asyncio.run(fetchURL(action=Actions.PLAYBACKINFO))
+	try:
+		remTime = xmlParser.parse(info, XPaths.PLAYBACK, "playingtimeleft")
+		fixedRemTime = utils.fixedTime(remTime)
+		return msg.format(time=fixedRemTime)
+	except Exception as e:
+		debugLog(e)
+		return errMsg(info)
+
+def getCurrentTrackInfo(detail):
+	msg = _("{detail} of the current track: {res}")
+	info = asyncio.run(fetchURL(action=Actions.PLAYBACKINFO))
+	try:
+		res = xmlParser.parse(info, XPaths.CURRENT_TRACK, detail)
+		return msg.format(detail=detail.title(), res=res)
+	except Exception as e:
+		debugLog(e)
+		return errMsg(info)
+
+def getFullCurrentTrackInfo():
+	info = asyncio.run(fetchURL(action=Actions.PLAYBACKINFO))
+	details = tuple(TrackDetails)
+	try:
+		res = xmlParser.parse(info, XPaths.CURRENT_TRACK, details)
+		return res
+	except Exception as e:
+		debugLog(e)
+		return errMsg(info)
+
+def getPosTrackInfo(pos, detail):
+	msg = _("{detail} of track {pos}: {res}")
+	params = ("pos=%d"%pos,)
+	info = asyncio.run(fetchURL(action=Actions.TRACKINFO, params=params))
+	try:
+		res = xmlParser.parse(info, XPaths.POS_TRACK, detail)
+		return msg.format(detail=detail.title(), pos=pos, res=res)
+	except Exception as e:
+		debugLog(e)
+		return errMsg(info)
+
+def getFullPosTrackInfo(pos):
+	params = ("pos=%d"%pos,)
+	details = tuple(TrackDetails)
+	info = asyncio.run(fetchURL(action=Actions.TRACKINFO, params=params))
+	try:
+		res = xmlParser.parse(info, XPaths.POS_TRACK, details)
+		return res
+	except Exception as e:
+		debugLog(e)
 		return errMsg(info)
 
 
