@@ -4,6 +4,14 @@ This add-on provides various enhancements for RadioBOSS by [DJSoft.Net.][1]
 
 Majority of features requires you have enabled Remote API in RadioBOSS settings, and filled add-on settings accordingly.
 
+## Note about labels
+
+This add-on integrates the labelAutofinder module, that associates text labels with edit and combo boxes automagically.
+
+For some obscure reason, if you restart NVDA with, e.g., Music Library opened, labels disappear completely.
+
+Minimize from alt+space menu and then return to window with alt+tab to fix it.
+
 ## Gestures
 
 All gestures are customizable under Input Gestures dialog of NVDA, in RadioBOSS section.

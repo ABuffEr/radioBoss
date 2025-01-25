@@ -53,6 +53,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		description = _("Reports {detail} of the current track (global)")
 		script.__doc__ = description.format(detail=detail.lower())
 		script.__name__ = funcName
+		script.speakOnDemand = True
 		setattr(cls, funcName, script)
 
 	def reportCurrentTrackDetail(self, detail):
@@ -62,6 +63,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@script(
 		# Translators: Message presented in input help mode.
 		description=_("Reports elapsed time of the current track (global)"),
+		speakOnDemand=True
 	)
 	def script_getSongElapsedTime(self, gesture):
 		info = apiUtils.getSongElapsedTime()
@@ -70,6 +72,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@script(
 		# Translators: Message presented in input help mode.
 		description=_("Reports remaining time of the current track (global)"),
+		speakOnDemand=True
 	)
 	def script_getSongRemainingTime(self, gesture):
 		info = apiUtils.getSongRemainingTime()
@@ -78,6 +81,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@script(
 		# Translators: Message presented in input help mode.
 		description=_("Reports remaining time of the playlist (global)"),
+		speakOnDemand=True
 	)
 	def script_getPlaylistRemainingTime(self, gesture):
 		info = apiUtils.getPlaylistRemainingTime()
@@ -86,6 +90,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@script(
 		# Translators: Message presented in input help mode.
 		description=_("Views in a dialog all details of the current track (global)"),
+		speakOnDemand=True
 	)
 	def script_viewCurrentTrackInfo(self, gesture):
 		details = apiUtils.getFullCurrentTrackInfo()
