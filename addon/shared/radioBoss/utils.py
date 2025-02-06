@@ -6,9 +6,6 @@
 import base64
 import time
 
-from controlTypes import Role as roles
-
-
 def encodeBase64String(strIn):
 	base64Bytes = base64.b64encode(strIn.encode("UTF-8"))
 	strOut = base64Bytes.decode("UTF-8")
@@ -27,3 +24,4 @@ def fixedTime(millis):
 		timeTemplate = "%H:%M:%S"
 	res = time.strftime(timeTemplate, time.gmtime(seconds))
 	return res
+

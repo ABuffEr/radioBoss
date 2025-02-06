@@ -13,6 +13,7 @@ import ui
 import wx
 
 from controlTypes import Role as roles
+from NVDAObjects.IAccessible import IAccessible
 from scriptHandler import script
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "shared"))
@@ -26,27 +27,37 @@ addonHandler.initTranslation()
 
 class BaseAppModule:
 
+	def chooseNVDAObjectOverlayClasses(self, obj, clsList):
+		# to fix slider accessibility
+		if not obj.name and obj.role == roles.SLIDER:
+			clsList.insert(0, SliderWithUnit)
+
 	def event_foreground(self, obj, nextHandler):
-		if obj.role == roles.PANE and obj.windowClassName in ("TLibraryFrm", "TTagEditFrm", "TForm2"):
-			obj.redraw()
-			speech.speak(obj.name)
+		# to fix text disappearing
+		if obj.role == roles.PANE:
+			labelAutofinder.refreshTextContent(obj)
 		nextHandler()
 
 	def event_gainFocus(self, obj, nextHandler):
 		# avoid None obj
 		if not obj:
 			return
+		# to label simple edit and combo boxes
 		if (
 			(not obj.name)
 			and
 			(obj.role == roles.COMBOBOX or (obj.role == roles.EDITABLETEXT and obj.simpleParent.role != roles.COMBOBOX))
+			and
+			(obj.location and obj.location.width < 300)
 		):
 			obj.name = labelAutofinder.getLabel(obj=obj)
 		nextHandler()
 
 	def event_focusEntered(self, obj, nextHandler):
+		# avoid None obj
 		if not obj:
 			return
+		# to label combo with edit boxes
 		if not obj.name and obj.role == roles.COMBOBOX:
 			obj.name = labelAutofinder.getLabel(obj=obj)
 		nextHandler()
@@ -57,13 +68,13 @@ class AppModule(BaseAppModule, appModuleHandler.AppModule):
 	scriptCategory = addonHandler.getCodeAddon().manifest["summary"]
 
 	@classmethod
-	def addTrackDetailScript(cls, detail):
+	def addPosTrackDetailScript(cls, detail):
 		scriptSuffix = detail.title()
 		scriptName = "getPosTrack%s" % scriptSuffix
 		funcName = "script_%s" % scriptName
 		script = lambda self, gesture: self.reportPosTrackDetail(detail)
 		# Translators: Message presented in input help mode.
-		description = _("Reports {detail} of the track at focused position in the playlist (app only)")
+		description = _("Reports {detail} of the track at focused position in the playlist")
 		script.__doc__ = description.format(detail=detail.lower())
 		script.__name__ = funcName
 		script.speakOnDemand = True
@@ -94,7 +105,7 @@ class AppModule(BaseAppModule, appModuleHandler.AppModule):
 
 	@script(
 		# Translators: Message presented in input help mode.
-		description=_("Enables/disables microphone, and reports it (app only)"),
+		description=_("Enables/disables microphone, and reports it"),
 		gesture="kb:F8",
 		speakOnDemand=True
 	)
@@ -105,7 +116,7 @@ class AppModule(BaseAppModule, appModuleHandler.AppModule):
 
 	@script(
 		# Translators: Message presented in input help mode.
-		description=_("Views in a dialog all details of the track at focused position in the playlist (app only)"),
+		description=_("Views in a dialog all details of the track at focused position in the playlist"),
 		speakOnDemand=True
 	)
 	def script_viewPosTrackInfo(self, gesture):
@@ -123,6 +134,83 @@ class AppModule(BaseAppModule, appModuleHandler.AppModule):
 		)
 
 
-register = AppModule.addTrackDetailScript
+	@classmethod
+	def addCurrentTrackDetailScript(cls, detail):
+		scriptSuffix = detail.title()
+		scriptName = "getCurrentTrack%s" % scriptSuffix
+		funcName = "script_%s" % scriptName
+		script = lambda self, gesture: self.reportCurrentTrackDetail(detail)
+		# Translators: Message presented in input help mode.
+		description = _("Reports {detail} of the current track")
+		script.__doc__ = description.format(detail=detail.lower())
+		script.__name__ = funcName
+		script.speakOnDemand = True
+		setattr(cls, funcName, script)
+
+	def reportCurrentTrackDetail(self, detail):
+		info = apiUtils.getCurrentTrackInfo(detail)
+		ui.message(info)
+
+	@script(
+		# Translators: Message presented in input help mode.
+		description=_("Reports elapsed time of the current track"),
+		speakOnDemand=True
+	)
+	def script_getSongElapsedTime(self, gesture):
+		info = apiUtils.getSongElapsedTime()
+		ui.message(info)
+
+	@script(
+		# Translators: Message presented in input help mode.
+		description=_("Reports remaining time of the current track"),
+		speakOnDemand=True
+	)
+	def script_getSongRemainingTime(self, gesture):
+		info = apiUtils.getSongRemainingTime()
+		ui.message(info)
+
+	@script(
+		# Translators: Message presented in input help mode.
+		description=_("Reports remaining time of the playlist"),
+		speakOnDemand=True
+	)
+	def script_getPlaylistRemainingTime(self, gesture):
+		info = apiUtils.getPlaylistRemainingTime()
+		ui.message(info)
+
+	@script(
+		# Translators: Message presented in input help mode.
+		description=_("Views in a dialog all details of the current track"),
+		speakOnDemand=True
+	)
+	def script_viewCurrentTrackInfo(self, gesture):
+		details = apiUtils.getFullCurrentTrackInfo()
+		if isinstance(details, str): # something went wrong
+			ui.message(details)
+			return
+		wx.CallAfter(
+			TrackInfoDialog.Run,
+			title=_("Details of the current track"),
+			details=details
+		)
+
+
+posRegister = AppModule.addPosTrackDetailScript
+currentRegister = AppModule.addCurrentTrackDetailScript
 for detail in list(TrackDetails):
-	register(detail)
+	posRegister(detail)
+	currentRegister(detail)
+
+
+class SliderWithUnit(IAccessible):
+
+	def _get_name(self):
+		name = labelAutofinder.getLabel(obj=self)
+		return name
+
+	def _get_value(self):
+		value = labelAutofinder.getLabel(obj=self, searchDirections=labelAutofinder.SearchDirections.RIGHT)
+		if not self._get_name():
+			labelAutofinder.refreshTextContent(self.parent)
+			self._get_name()
+		return value

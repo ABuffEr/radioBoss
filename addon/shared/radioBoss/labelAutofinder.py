@@ -7,25 +7,9 @@ import api
 
 from controlTypes import Role as roles
 from displayModel import DisplayModelTextInfo as DMTI
-from logHandler import log
 
+# to enable debug
 DEBUG = False
-
-def debugLog(message):
-	if DEBUG:
-		log.info(message)
-
-# for testing performances
-import time
-from contextlib import contextmanager
-@contextmanager
-def measureTime(label):
-	start = time.time()
-	try:
-		yield
-	finally:
-		end = time.time()
-		debugLog("%s: %.3f s"%(label, end-start))
 
 def getLabel(obj=None, textObj=None, breakObj=None, searchDirections=None):
 	# it's better to provide obj, e.g. via event_* filtering, but anyway...
@@ -80,26 +64,24 @@ def getTextFromContainer(obj, textObj, breakObj):
 			tempInfo = RestrictedDMTI(ancestor, ancestor.location.toLTRB())
 			if tempInfo.text:
 				info = tempInfo
+#				debugLog("Found textObj: %s\nwith text: %s"%(ancestor.devInfo, info.text))
 				break
 		if ancestor == breakObj:
 			break
 	return info
+
+def getAncestors(obj):
+	parents = []
+	while (parent := obj.parent):
+		parents.append(parent)
+		obj = parent
+	return list(reversed(parents))
 
 
 # class to exclude children from text retrieval
 class RestrictedDMTI(DMTI):
 
 	includeDescendantWindows = False
-
-
-def getAncestors(obj):
-	if obj == api.getFocusObject():
-		return api.getFocusAncestors()
-	parents = []
-	while (parent := obj.parent):
-		parents.append(parent)
-		obj = parent
-	return list(reversed(parents))
 
 
 # class to collect useful search direction tuples
@@ -235,3 +217,45 @@ class BoundingExplorer:
 		):
 			distance = charTop-objBottom
 			return distance
+
+
+# useful minor methods
+
+# for logging
+from logHandler import log
+
+def debugLog(message):
+	if DEBUG:
+		log.info(message)
+
+# for testing performances
+import time
+from contextlib import contextmanager
+
+@contextmanager
+def measureTime(label):
+	start = time.time()
+	try:
+		yield
+	finally:
+		end = time.time()
+		debugLog("%s: %.3f s"%(label, end-start))
+
+# for forcing obj to correctly refresh its text content,
+# useful in some (Delphi?) software;
+# see SetWindowPos documentation:
+# https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
+from ctypes import windll
+
+SWP_FRAMECHANGED = 0x0020
+SWP_NOCOPYBITS = 0x0100
+SWP_NOMOVE = 0x0002
+SWP_NOREPOSITION = 0x0200
+SWP_NOSIZE = 0x0001
+SWP_NOZORDER = 0x0004
+SWP_SHOWWINDOW = 0x0040
+# join together
+SWP_FLAGS = SWP_FRAMECHANGED|SWP_NOCOPYBITS|SWP_NOMOVE|SWP_NOREPOSITION|SWP_NOSIZE|SWP_NOZORDER|SWP_SHOWWINDOW
+
+def refreshTextContent(obj):
+	windll.user32.SetWindowPos(obj.windowHandle, None, None, None, None, None, SWP_FLAGS)
