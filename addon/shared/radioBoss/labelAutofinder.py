@@ -11,7 +11,7 @@ from displayModel import DisplayModelTextInfo as DMTI
 # to enable debug
 DEBUG = False
 
-def getLabel(obj=None, textObj=None, breakObj=None, searchDirections=None):
+def getLabel(obj=None, textObj=None, breakObj=None, searchDirections=None, maxHorizontalDistance=None, maxVerticalDistance=None):
 	# it's better to provide obj, e.g. via event_* filtering, but anyway...
 	if not obj:
 		obj = api.getFocusObject()
@@ -30,10 +30,11 @@ def getLabel(obj=None, textObj=None, breakObj=None, searchDirections=None):
 	# y (top and bottom coordinates) does the same but
 	# moving from top to bottom on the screen;
 	objRect = obj.location.toLTRB()
-	# max distance between an obj point (left and right) and its outside neighbor
-	maxHorizontalDistance = RestrictedDMTI.minHorizontalWhitespace
+	# max horizontal distance between an obj point (left and right) and its outside neighbor
+	if not maxHorizontalDistance:
+		maxHorizontalDistance	= RestrictedDMTI.minHorizontalWhitespace
 	# explorer that looks around obj
-	explorer = BoundingExplorer(objRect, maxHorizontalDistance, searchDirections)
+	explorer = BoundingExplorer(objRect, searchDirections, maxHorizontalDistance, maxVerticalDistance)
 	# rectangles for each char in textObj
 	charRects = info._storyFieldsAndRects[1]
 	# get possible offsets of label
@@ -101,11 +102,13 @@ class SearchDirections:
 # solution core: explorer of obj neighborhood
 class BoundingExplorer:
 
-	def __init__(self, objRect, maxHorizontalDistance, searchDirections):
+	def __init__(self, objRect, searchDirections, maxHorizontalDistance, maxVerticalDistance):
 		# obj rectangle which you look around
 		self.objRect = objRect
 		# max external distance from an obj point (left or right)
 		self.maxHorizontalDistance = maxHorizontalDistance
+		# max external distance from an obj point (top or bottom)
+		self.maxVerticalDistance = maxVerticalDistance
 		# methods for checking on each direction
 		checkerMethods = (self.leftCheck, self.topCheck, self.rightCheck, self.bottomCheck)
 		# char offsets collected for each direction
@@ -180,13 +183,13 @@ class BoundingExplorer:
 	def topCheck(self, charRect):
 		objLeft, objTop, objRight, objBottom = self.objRect
 		charLeft, charTop, charRight, charBottom = charRect
-		charHeight = charRect.height
+		maxVerticalDistance = self.maxVerticalDistance if self.maxVerticalDistance else charRect.height
 		if (
 			(objLeft<=charLeft<objRight)
 			and
 			(objTop > charBottom)
 			and
-			(objTop-charBottom <= charHeight)
+			(objTop-charBottom <= maxVerticalDistance)
 		):
 			distance = objTop-charBottom
 			return distance
@@ -207,13 +210,13 @@ class BoundingExplorer:
 	def bottomCheck(self, charRect):
 		objLeft, objTop, objRight, objBottom = self.objRect
 		charLeft, charTop, charRight, charBottom = charRect
-		charHeight = charRect.height
+		maxVerticalDistance = self.maxVerticalDistance if self.maxVerticalDistance else charRect.height
 		if (
 			(objLeft<=charLeft<objRight)
 			and
 			(charTop > objBottom)
 			and
-			(charTop-objBottom <= charHeight)
+			(charTop-objBottom <= maxVerticalDistance)
 		):
 			distance = charTop-objBottom
 			return distance

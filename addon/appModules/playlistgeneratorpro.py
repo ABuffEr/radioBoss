@@ -5,9 +5,16 @@
 
 import appModuleHandler
 
-from .radioboss import BaseAppModule
+from controlTypes import Role as roles
+
+from .radioboss import BaseAppModule, labelAutofinder
 
 
 class AppModule(BaseAppModule, appModuleHandler.AppModule):
 
-	pass
+	def event_gainFocus(self, obj, nextHandler):
+		if not obj.name and obj.role == roles.EDITABLETEXT and obj.simpleParent.windowClassName == "TTabSheet":
+			obj.name = labelAutofinder.getLabel(obj=obj, searchDirections=labelAutofinder.SearchDirections.RIGHT, maxHorizontalDistance=32)
+			nextHandler()
+		else:
+			return super().event_gainFocus(obj, nextHandler)
