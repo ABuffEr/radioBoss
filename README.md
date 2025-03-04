@@ -9,9 +9,11 @@ This add-on integrates the labelAutofinder module, that associates text labels w
 
 ## Gestures
 
-All gestures are customizable under Input Gestures dialog of NVDA, in RadioBOSS section.
+All gestures are customizable under Input Gestures dialog of NVDA, in RadioBOSS sections.
 
-One gesture is global (available even without the app in foreground), the others not (just in the app).
+Yes, there are two sections: "RadioBOSS (global)", always available, and "RadioBOSS (app only)", that appears when you open RadioBOSS app.
+
+A lot of gestures are common to both sections.
 
 ### Assigned gestures
 
@@ -21,19 +23,22 @@ One gesture is global (available even without the app in foreground), the others
 
 ### Not assigned gestures
 
-Global:
+Global only:
 
 * switches between RadioBOSS and other windows where you are.
 
 App only:
 
-* reports detail (artist, title, album...) of the current track (each detail can have a gesture);
 * reports detail (artist, title, album...) of the track at focused position in the playlist (each detail can have a gesture);
+* views in a dialog all details of the track at focused position in the playlist.
+
+App & global:
+
+* reports detail (artist, title, album...) of the current track (each detail can have a gesture);
 * reports elapsed time of the current track;
 * reports remaining time of the current track;
 * reports remaining time of the playlist;
-* views in a dialog all details of the current track;
-* views in a dialog all details of the track at focused position in the playlist.
+* views in a dialog all details of the current track.
 
 ## Warning
 

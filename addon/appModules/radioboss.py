@@ -65,7 +65,9 @@ class BaseAppModule:
 
 class AppModule(BaseAppModule, appModuleHandler.AppModule):
 
-	scriptCategory = addonHandler.getCodeAddon().manifest["summary"]
+	summary = addonHandler.getCodeAddon().manifest["summary"]
+	availability = _("(app only)")
+	scriptCategory = ' '.join([summary, availability])
 
 	@classmethod
 	def addPosTrackDetailScript(cls, detail):
@@ -133,7 +135,6 @@ class AppModule(BaseAppModule, appModuleHandler.AppModule):
 			details=details
 		)
 
-
 	@classmethod
 	def addCurrentTrackDetailScript(cls, detail):
 		scriptSuffix = detail.title()
@@ -193,7 +194,6 @@ class AppModule(BaseAppModule, appModuleHandler.AppModule):
 			title=_("Details of the current track"),
 			details=details
 		)
-
 
 posRegister = AppModule.addPosTrackDetailScript
 currentRegister = AppModule.addCurrentTrackDetailScript

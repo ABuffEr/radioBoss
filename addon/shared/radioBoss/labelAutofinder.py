@@ -4,25 +4,66 @@
 # Released under GPL 2
 
 import api
+import winUser
+import sys
 
 from controlTypes import Role as roles
 from displayModel import DisplayModelTextInfo as DMTI
+from NVDAObjects.IAccessible import getNVDAObjectFromEvent
 
 # to enable debug
 DEBUG = False
 
-def getLabel(obj=None, textObj=None, breakObj=None, searchDirections=None, maxHorizontalDistance=None, maxVerticalDistance=None):
+
+def getLabel(*args, **kwargs):
+	fg = api.getForegroundObject()
+	staticHandles = getAllStaticHandles(fg.windowHandle)
+	if staticHandles:
+		return getRoleLabel(*args, **kwargs)
+	else:
+		return getTextLabel(*args, **kwargs)
+
+def getRoleLabel(obj=None, maxParent=None, searchDirections=None, maxHorizontalDistance=150, maxVerticalDistance=150, overview=False):
+	# it's better to provide obj, e.g. via event_* filtering, but anyway...
+	if not obj:
+		obj = api.getFocusObject()
+	if not maxParent:
+		maxParent = api.getForegroundObject()
+	staticHandles = getAllStaticHandles(maxParent.windowHandle)
+	if not staticHandles:
+		debugLog("No handles found!")
+		return
+	objRect = obj.location.toLTRB()
+	if not searchDirections:
+		# labels are usally at the top or on the left
+		searchDirections = SearchDirections.TOP_LEFT
+	fg = api.getForegroundObject()
+	if maxHorizontalDistance == sys.maxsize:
+		maxHorizontalDistance = fg.location.width
+	if maxVerticalDistance == sys.maxsize:
+		maxVerticalDistance = fg.location.height
+	# explorer that looks around obj
+	explorer = StarExplorer(objRect, searchDirections, maxHorizontalDistance, maxVerticalDistance)
+	staticObjs = [getNVDAObjectFromEvent(handle, winUser.OBJID_CLIENT, 0) for handle in staticHandles]
+	res = explorer.getDistanceAndLabelText(staticObjs)
+	if not res:
+		return
+	if overview:
+		return res
+	else:
+		distance, label = res
+		return label
+
+
+def getTextLabel(obj=None, textObj=None, maxParent=None, searchDirections=None, maxHorizontalDistance=None, maxVerticalDistance=None, overview=False):
 	# it's better to provide obj, e.g. via event_* filtering, but anyway...
 	if not obj:
 		obj = api.getFocusObject()
 	# get text from obj that contains it (textObj), provided or discovered automatically
-	info = getTextFromContainer(obj, textObj, breakObj)
+	info = getTextFromContainer(obj, textObj, maxParent)
 	if not info:
 		debugLog("No text found!")
 		return
-	if not searchDirections:
-		# labels are usally at the top or on the left
-		searchDirections = SearchDirections.TOP_LEFT
 	# rectangle of obj to label, in (left, top, right, bottom) representation
 	# Remember:
 	# x (left and right coordinates) goes from 0 to positive integers,
@@ -30,31 +71,42 @@ def getLabel(obj=None, textObj=None, breakObj=None, searchDirections=None, maxHo
 	# y (top and bottom coordinates) does the same but
 	# moving from top to bottom on the screen;
 	objRect = obj.location.toLTRB()
+	if not searchDirections:
+		# labels are usally at the top or on the left
+		searchDirections = SearchDirections.TOP_LEFT
 	# max horizontal distance between an obj point (left and right) and its outside neighbor
 	if not maxHorizontalDistance:
 		maxHorizontalDistance	= RestrictedDMTI.minHorizontalWhitespace
+	if maxHorizontalDistance == sys.maxsize:
+		maxHorizontalDistance	= 10000
+	if maxVerticalDistance == sys.maxsize:
+		maxVerticalDistance = 10000
 	# explorer that looks around obj
 	explorer = BoundingExplorer(objRect, searchDirections, maxHorizontalDistance, maxVerticalDistance)
 	# rectangles for each char in textObj
 	charRects = info._storyFieldsAndRects[1]
 	# get possible offsets of label
-	charOffsets = explorer.getCharOffsets(charRects)
-	if not charOffsets:
+	res = explorer.getDistanceAndCharOffsets(charRects)
+	if not res:
 		debugLog("No chars around obj!")
 		return
+	distance, charOffsets	= res
 	# calculate a mean of found offsets, to avoid spurious results
 	chunkCenterOffset = sum(charOffsets)//len(charOffsets)
 	# get start and end offsets for whole label
 	labelStartOffset, labelEndOffset = info._getDisplayChunkOffsets(chunkCenterOffset)
 	# finally, get label text from textObj
-	labelText = info.text[labelStartOffset:labelEndOffset]
-	debugLog("Label: %s"%labelText)
-	return labelText
+	label = info.text[labelStartOffset:labelEndOffset]
+	debugLog("Label: %s"%label)
+	if overview:
+		return (distance, label)
+	else:
+		return label
 
-def getTextFromContainer(obj, textObj, breakObj):
-	# breakObj is the topmost limit for textObj search
-	if not breakObj:
-		breakObj = api.getForegroundObject()
+def getTextFromContainer(obj, textObj, maxParent):
+	# maxParent is the topmost limit for textObj search
+	if not maxParent:
+		maxParent = api.getForegroundObject()
 	# find a textObj in obj ancestors that could provide labels
 	info = None
 	ancestors = [textObj] if textObj else getAncestors(obj)
@@ -65,9 +117,8 @@ def getTextFromContainer(obj, textObj, breakObj):
 			tempInfo = RestrictedDMTI(ancestor, ancestor.location.toLTRB())
 			if tempInfo.text:
 				info = tempInfo
-#				debugLog("Found textObj: %s\nwith text: %s"%(ancestor.devInfo, info.text))
 				break
-		if ancestor == breakObj:
+		if ancestor == maxParent:
 			break
 	return info
 
@@ -96,6 +147,8 @@ class SearchDirections:
 	LEFT_BOTTOM = (*LEFT, *BOTTOM)
 	BOTTOM_RIGHT = (*BOTTOM, *RIGHT)
 	RIGHT_TOP = (*RIGHT, *TOP)
+	HORIZONTAL = (*LEFT, *RIGHT)
+	VERTICAL = (*TOP, *BOTTOM)
 	ALL = (*LEFT, *TOP, *RIGHT, *BOTTOM)
 
 
@@ -111,20 +164,17 @@ class BoundingExplorer:
 		self.maxVerticalDistance = maxVerticalDistance
 		# methods for checking on each direction
 		checkerMethods = (self.leftCheck, self.topCheck, self.rightCheck, self.bottomCheck)
-		# char offsets collected for each direction
-		self.offsets = {}
-		# char distances collected for each direction
-		self.distances = {}
+		# char distances and offsets collected for each direction
+		self.distancesAndOffsets = {}
 		# checker methods to be invoke (according to passed directions)
 		self.checkers = {}
 		# initialize  for each passed direction
 		for direction, checker in enumerate(checkerMethods):
 			if direction in searchDirections:
-				self.offsets[direction] = []
-				self.distances[direction] = []
+				self.distancesAndOffsets[direction] = {}
 				self.checkers[direction] = checker
 
-	def getCharOffsets(self, charRects):
+	def getDistanceAndCharOffsets(self, charRects):
 		debugLog("Rects to analyze: %d"%len(charRects))
 		# check proximity and distance
 		# for each char rect around obj
@@ -134,38 +184,38 @@ class BoundingExplorer:
 			for direction, checker in self.checkers.items():
 				distance = checker(charRect)
 				if distance:
-					self.offsets[direction].append(offset)
-					self.distances[direction].append(distance)
-		if not any(self.offsets.values()):
+					self.distancesAndOffsets[direction].setdefault(distance, []).append(offset)
+		if not any(self.distancesAndOffsets.values()):
 			debugLog("No chunk offset found!")
 			return
 		# establish best direction to consider
-		chosenDirection = self.chooseDirection()
-		if chosenDirection is None:
+		distanceAndDirection = self.getDistanceAndDirection()
+		if not distanceAndDirection:
 			debugLog("No direction found!")
 			return
+		distance, chosenDirection = distanceAndDirection
 		debugLog("Chosen direction: %s"%chosenDirection)
-		# and return the collected offsets in that direction
-		return self.offsets[chosenDirection]
+		# and return min distance and the collected offsets in that direction
+		offsets = self.distancesAndOffsets[chosenDirection][distance]
+		return (distance, offsets)
 
-	def chooseDirection(self):
-		# calculate average distance in specified directions
+	def getDistanceAndDirection(self):
+		# find minimum distance in specified directions
 		# or set a no-sense, giant one instead (when no offsets)
-		avgDistances = {}
+		minDistanceInDirection = {}
 		for direction in self.checkers.keys():
-			distances = self.distances[direction]
-			avgDistance = sum(distances)//len(distances) if distances else 10000
-			avgDistances[direction] = avgDistance
-		# get direction with minimum average distance
+			distances = self.distancesAndOffsets[direction].keys()
+			minDistanceInDirection[direction] = min(distances) if distances else 10000
+		# get direction with minimum distance
 		# and check whether it's valid
-		chosenDirection = min(avgDistances, key=avgDistances.get)
-		minDistance = avgDistances[chosenDirection]
+		chosenDirection = min(minDistanceInDirection, key=minDistanceInDirection.get)
+		minDistance = minDistanceInDirection[chosenDirection]
 		if minDistance == 10000:
 			debugLog("Unable to establish label position")
 			return
 		debugLog("Min distance: %d"%minDistance)
 		# return best direction where retrieve offsets
-		return chosenDirection
+		return (minDistance, chosenDirection)
 
 	def leftCheck(self, charRect):
 		objLeft, objTop, objRight, objBottom = self.objRect
@@ -222,6 +272,114 @@ class BoundingExplorer:
 			return distance
 
 
+class StarExplorer:
+
+	def __init__(self, objRect, searchDirections, maxHorizontalDistance, maxVerticalDistance):
+		# obj rectangle which you look around
+		self.objRect = objRect
+		# max external distance from an obj point (left or right)
+		self.maxHorizontalDistance = maxHorizontalDistance
+		# max external distance from an obj point (top or bottom)
+		self.maxVerticalDistance = maxVerticalDistance
+		# methods for checking on each direction
+		checkerMethods = (self.leftCheck, self.topCheck, self.rightCheck, self.bottomCheck)
+		# point distances and labels collected for each direction
+		self.distancesAndLabels = {}
+		# checker methods to be invoke (according to passed directions)
+		self.checkers = {}
+		# initialize  for each passed direction
+		for direction, checker in enumerate(checkerMethods):
+			if direction in searchDirections:
+				self.distancesAndLabels[direction] = []
+				self.checkers[direction] = checker
+
+	def getDistanceAndLabelText(self, labelObjs):
+		debugLog("Labels to analyze: %d"%len(labelObjs))
+		# check proximity and distance
+		# for each center point around obj
+		# in specified directions,
+		# saving distance if compatible
+		for labelObj in labelObjs:
+			labelText = labelObj.name
+			if not labelText or labelText.isspace():
+				# TODO: manage image with OCR and AI
+				continue
+			centerPoint = labelObj.location.center
+			for direction, checker in self.checkers.items():
+				distance = checker(centerPoint)
+				if distance:
+					self.distancesAndLabels[direction].append((distance, labelText,))
+		if not any(self.distancesAndLabels.values()):
+			debugLog("No points found!")
+			return
+		# establish nearest label for each direction
+		minDistancesAndLabels = {}
+		for direction in self.checkers.keys():
+			distancesAndLabels = self.distancesAndLabels[direction]
+			debugLog("Distances and labels for direction %d: %s"%(direction, distancesAndLabels))
+			minDistanceAndLabel = min(distancesAndLabels, key=lambda i: i[0]) if distancesAndLabels else (10000, None)
+			minDistancesAndLabels[direction] = minDistanceAndLabel
+		# establish the direction with nearest label
+		chosenDirection = min(minDistancesAndLabels, key=minDistancesAndLabels.get)
+		minDistance, labelText = minDistancesAndLabels[chosenDirection]
+		if minDistance == 10000:
+			debugLog("Unable to establish label position")
+			return
+		debugLog("Min distance: %d"%minDistance)
+		return (minDistance, labelText)
+
+	def leftCheck(self, centerPoint):
+		objLeft, objTop, objRight, objBottom = self.objRect
+		xPoint, yPoint = centerPoint
+		if (
+			(objTop<yPoint<=objBottom)
+			and
+			(objLeft > xPoint)
+			and
+			(objLeft-xPoint <= self.maxHorizontalDistance)
+		):
+			distance = objLeft-xPoint
+			return distance
+
+	def topCheck(self, centerPoint):
+		objLeft, objTop, objRight, objBottom = self.objRect
+		xPoint, yPoint = centerPoint
+		if (
+			(objLeft<=xPoint<objRight)
+			and
+			(objTop > yPoint)
+			and
+			(objTop-yPoint <= self.maxVerticalDistance)
+		):
+			distance = objTop-yPoint
+			return distance
+
+	def rightCheck(self, centerPoint):
+		objLeft, objTop, objRight, objBottom = self.objRect
+		xPoint, yPoint = centerPoint
+		if (
+			(objTop<yPoint<=objBottom)
+			and
+			(xPoint > objRight)
+			and
+			(xPoint-objRight <= self.maxHorizontalDistance)
+		):
+			distance = xPoint-objRight
+			return distance
+
+	def bottomCheck(self, centerPoint):
+		objLeft, objTop, objRight, objBottom = self.objRect
+		xPoint, yPoint = centerPoint
+		if (
+			(objLeft<=xPoint<objRight)
+			and
+			(yPoint > objBottom)
+			and
+			(yPoint-objBottom <= self.maxVerticalDistance)
+		):
+			distance = yPoint-objBottom
+			return distance
+
 # useful minor methods
 
 # for logging
@@ -262,3 +420,22 @@ SWP_FLAGS = SWP_FRAMECHANGED|SWP_NOCOPYBITS|SWP_NOMOVE|SWP_NOREPOSITION|SWP_NOSI
 
 def refreshTextContent(obj):
 	windll.user32.SetWindowPos(obj.windowHandle, None, None, None, None, None, SWP_FLAGS)
+
+import ctypes
+
+WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.wintypes.BOOL, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
+def getAllStaticHandles(parent):
+	results = []
+	@WNDENUMPROC
+	def callback(window, data):
+		isWindowVisible = winUser.isWindowVisible(window)
+		isWindowEnabled = winUser.isWindowEnabled(window)
+		className = winUser.getClassName(window)
+		if isWindowVisible and isWindowEnabled and "static" in className.lower():
+			results.append(window)
+		return True
+	# call previous func until it returns True,
+	# thus always, getting all windows
+	ctypes.windll.user32.EnumChildWindows(parent, callback, 0)
+	# return all results
+	return results

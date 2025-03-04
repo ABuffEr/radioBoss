@@ -22,8 +22,10 @@ from ipaddress import ip_address
 from scriptHandler import script
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "shared"))
-from radioBoss import utils
+from radioBoss import apiUtils, utils
 from radioBoss.configManager import addonConfig
+from radioBoss.constants import TrackDetails
+from radioBoss.trackInfoDialog import TrackInfoDialog
 del sys.path[0]
 
 addonHandler.initTranslation()
@@ -34,7 +36,9 @@ rbWindowHandle = lastWindowHandle = None
 
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
-	scriptCategory = addonHandler.getCodeAddon().manifest["summary"]
+	summary = addonHandler.getCodeAddon().manifest["summary"]
+	availability = _("(global)")
+	scriptCategory = ' '.join([summary, availability])
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -59,7 +63,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	@script(
 		# Translators: Message presented in input help mode.
-		description=_("Switches between RadioBOSS and other windows where you are (global)"),
+		description=_("Switches between RadioBOSS and other windows where you are"),
 	)
 	def script_switchWindow(self, gesture):
 		obj = api.getForegroundObject()
@@ -75,6 +79,72 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		res = windll.user32.SwitchToThisWindow(handle, True) if windll.user32.IsWindowVisible(handle) else 0
 		if not res:
 			ui.message(errMsg)
+
+
+	@classmethod
+	def addCurrentTrackDetailScript(cls, detail):
+		scriptSuffix = detail.title()
+		scriptName = "getCurrentTrack%s" % scriptSuffix
+		funcName = "script_%s" % scriptName
+		script = lambda self, gesture: self.reportCurrentTrackDetail(detail)
+		# Translators: Message presented in input help mode.
+		description = _("Reports {detail} of the current track") #(global)")
+		script.__doc__ = description.format(detail=detail.lower())
+		script.__name__ = funcName
+		script.speakOnDemand = True
+		setattr(cls, funcName, script)
+
+	def reportCurrentTrackDetail(self, detail):
+		info = apiUtils.getCurrentTrackInfo(detail)
+		ui.message(info)
+
+	@script(
+		# Translators: Message presented in input help mode.
+		description=_("Reports elapsed time of the current track"),
+		speakOnDemand=True
+	)
+	def script_getSongElapsedTime(self, gesture):
+		info = apiUtils.getSongElapsedTime()
+		ui.message(info)
+
+	@script(
+		# Translators: Message presented in input help mode.
+		description=_("Reports remaining time of the current track"),
+		speakOnDemand=True
+	)
+	def script_getSongRemainingTime(self, gesture):
+		info = apiUtils.getSongRemainingTime()
+		ui.message(info)
+
+	@script(
+		# Translators: Message presented in input help mode.
+		description=_("Reports remaining time of the playlist"),
+		speakOnDemand=True
+	)
+	def script_getPlaylistRemainingTime(self, gesture):
+		info = apiUtils.getPlaylistRemainingTime()
+		ui.message(info)
+
+	@script(
+		# Translators: Message presented in input help mode.
+		description=_("Views in a dialog all details of the current track"),
+		speakOnDemand=True
+	)
+	def script_viewCurrentTrackInfo(self, gesture):
+		details = apiUtils.getFullCurrentTrackInfo()
+		if isinstance(details, str): # something went wrong
+			ui.message(details)
+			return
+		wx.CallAfter(
+			TrackInfoDialog.Run,
+			title=_("Details of the current track"),
+			details=details
+		)
+
+
+currentRegister = GlobalPlugin.addCurrentTrackDetailScript
+for detail in list(TrackDetails):
+	currentRegister(detail)
 
 
 class AddonSettings(settingsDialogs.SettingsPanel):
