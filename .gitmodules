@@ -1,0 +1,3 @@
+[submodule "addon/shared/labelAutofinderCore"]
+	path = addon/shared/labelAutofinderCore
+	url = https://github.com/ABuffEr/labelAutofinderCore
