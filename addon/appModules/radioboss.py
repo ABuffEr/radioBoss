@@ -17,7 +17,8 @@ from NVDAObjects.IAccessible import IAccessible
 from scriptHandler import script
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "shared"))
-from radioBoss import apiUtils, labelAutofinder
+from labelAutofinderCore import getLabel, SearchConfig, SearchDirections, refreshTextContent
+from radioBoss import apiUtils
 from radioBoss.constants import TrackDetails
 from radioBoss.trackInfoDialog import TrackInfoDialog
 del sys.path[0]
@@ -35,7 +36,7 @@ class BaseAppModule:
 	def event_foreground(self, obj, nextHandler):
 		# to fix text disappearing
 		if obj.role == roles.PANE:
-			labelAutofinder.refreshTextContent(obj)
+			refreshTextContent(obj)
 		nextHandler()
 
 	def event_gainFocus(self, obj, nextHandler):
@@ -50,7 +51,7 @@ class BaseAppModule:
 			and
 			(obj.location and obj.location.width < 300)
 		):
-			obj.name = labelAutofinder.getLabel(obj=obj)
+			obj.name = getLabel(obj)
 		nextHandler()
 
 	def event_focusEntered(self, obj, nextHandler):
@@ -59,7 +60,7 @@ class BaseAppModule:
 			return
 		# to label combo with edit boxes
 		if not obj.name and obj.role == roles.COMBOBOX:
-			obj.name = labelAutofinder.getLabel(obj=obj)
+			obj.name = getLabel(obj)
 		nextHandler()
 
 
@@ -205,12 +206,13 @@ for detail in list(TrackDetails):
 class SliderWithUnit(IAccessible):
 
 	def _get_name(self):
-		name = labelAutofinder.getLabel(obj=self)
+		name = getLabel(self)
 		return name
 
 	def _get_value(self):
-		value = labelAutofinder.getLabel(obj=self, searchDirections=labelAutofinder.SearchDirections.RIGHT)
+		config = SearchConfig(directions=SearchDirections.RIGHT)
+		value = getLabel(self, config)
 		if not self._get_name():
-			labelAutofinder.refreshTextContent(self.parent)
+			refreshTextContent(self.parent)
 			self._get_name()
 		return value
