@@ -21,8 +21,9 @@ def debugLog(message):
 		log.info(message)
 
 def errMsg(info):
-	msg = _("Something went wrong.\nAPI response: {data}")
-	return msg.format(data=info)
+	msg = _("Something went wrong. See log for details")
+	log.error("RadioBOSS API response: {data}".format(data=info))
+	return msg
 
 def buildURL(action, params=None):
 	protocol = addonConfig["protocol"]
@@ -103,11 +104,12 @@ def getCurrentTrackInfo(detail):
 		debugLog(e)
 		return errMsg(info)
 
-def getFullCurrentTrackInfo():
+def getPlaybackTrackInfo(track, details=None):
 	info = asyncio.run(fetchURL(action=Actions.PLAYBACKINFO))
-	details = tuple(TrackDetails)
+	XPath = getattr(XPaths, "%s_TRACK"%track.upper())
+	details = tuple(TrackDetails) if not details else tuple(details)
 	try:
-		res = xmlParser.parse(info, XPaths.CURRENT_TRACK, details)
+		res = xmlParser.parse(info, XPath, details)
 		return res
 	except Exception as e:
 		debugLog(e)

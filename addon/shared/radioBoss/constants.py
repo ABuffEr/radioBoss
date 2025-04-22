@@ -20,7 +20,9 @@ class Actions(DirectValueStrEnum):
 class XPaths(DirectValueStrEnum):
 
 	PLAYBACK = ".Playback"
+	PREVIOUS_TRACK = ".PrevTrack/TRACK"
 	CURRENT_TRACK = ".CurrentTrack/TRACK"
+	NEXT_TRACK = ".NextTrack/TRACK"
 	POS_TRACK = ".Track/TRACK"
 
 

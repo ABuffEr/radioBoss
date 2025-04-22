@@ -13,15 +13,19 @@ import ui
 import wx
 
 from controlTypes import Role as roles
-from NVDAObjects.IAccessible import IAccessible
+from NVDAObjects.IAccessible import IAccessible, getNVDAObjectFromEvent
 from scriptHandler import script
+from windowUtils import findDescendantWindow
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "shared"))
 from labelAutofinderCore import getLabel, SearchConfig, SearchDirections, refreshTextContent
 from radioBoss import apiUtils
+from radioBoss.configManager import addonConfig
 from radioBoss.constants import TrackDetails
 from radioBoss.trackInfoDialog import TrackInfoDialog
 del sys.path[0]
+del sys.modules["labelAutofinderCore"]
+del sys.modules["radioBoss"]
 
 addonHandler.initTranslation()
 
@@ -186,15 +190,99 @@ class AppModule(BaseAppModule, appModuleHandler.AppModule):
 		speakOnDemand=True
 	)
 	def script_viewCurrentTrackInfo(self, gesture):
-		details = apiUtils.getFullCurrentTrackInfo()
+		details = apiUtils.getPlaybackTrackInfo("current")
 		if isinstance(details, str): # something went wrong
-			ui.message(details)
+			# Translators: error if info of current track is not available
+			ui.message(_("No current track"))
 			return
 		wx.CallAfter(
 			TrackInfoDialog.Run,
 			title=_("Details of the current track"),
 			details=details
 		)
+
+	@script(
+		# Translators: Message presented in input help mode.
+		description=_("Report a summary of previous track info"),
+		speakOnDemand=True
+	)
+	def script_previousTrackSummary(self, gesture):
+		details = [detail.upper() for detail in addonConfig["infoSummary"]]
+		info = apiUtils.getPlaybackTrackInfo("previous", details)
+		if isinstance(info, str) or not any(info.values()): # something went wrong
+			# Translators: error if summary of previous track is not available
+			ui.message(_("No previous track"))
+			return
+		msg = ""
+		for k, v in info.items():
+			tempMsg = "%s: %s; "%(k.title(), v)
+			msg = ''.join([msg, tempMsg])
+		ui.message(msg)
+
+	@script(
+		# Translators: Message presented in input help mode.
+		description=_("Report a summary of current track info"),
+		speakOnDemand=True
+	)
+	def script_currentTrackSummary(self, gesture):
+		details = [detail.upper() for detail in addonConfig["infoSummary"]]
+		info = apiUtils.getPlaybackTrackInfo("current", details)
+		if isinstance(info, str) or not any(info.values()): # something went wrong
+			# Translators: error if summary of current track is not available
+			ui.message(_("No current track"))
+			return
+		msg = ""
+		for k, v in info.items():
+			tempMsg = "%s: %s; "%(k.title(), v)
+			msg = ''.join([msg, tempMsg])
+		ui.message(msg)
+
+	@script(
+		# Translators: Message presented in input help mode.
+		description=_("Report a summary of next track info"),
+		speakOnDemand=True
+	)
+	def script_nextTrackSummary(self, gesture):
+		details = [detail.upper() for detail in addonConfig["infoSummary"]]
+		info = apiUtils.getPlaybackTrackInfo("next", details)
+		if isinstance(info, str) or not any(info.values()): # something went wrong
+			# Translators: error if summary of next track is not available
+			ui.message(_("No next track"))
+			return
+		msg = ""
+		for k, v in info.items():
+			tempMsg = "%s: %s; "%(k.title(), v)
+			msg = ''.join([msg, tempMsg])
+		ui.message(msg)
+
+	@script(
+		# Translators: Message presented in input help mode.
+		description=_("Jumps to log events"),
+		speakOnDemand=True
+	)
+	def script_jumpToLog(self, gesture):
+		fg = api.getForegroundObject()
+		handle = findDescendantWindow(parent=fg.windowHandle, controlID=0, visible=True, className="TVirtualTreeLog")
+		if not handle:
+			ui.message(_("No log found"))
+			return
+		obj = getNVDAObjectFromEvent(handle, 0, 0)
+		obj.setFocus()
+
+	@script(
+		# Translators: Message presented in input help mode.
+		description=_("Jumps to playlist tree"),
+		speakOnDemand=True
+	)
+	def script_jumpToPlaylist(self, gesture):
+		fg = api.getForegroundObject()
+		handle = findDescendantWindow(parent=fg.windowHandle, visible=True, controlID=0, className="TVirtualTreePlaylist")
+		if not handle:
+			ui.message(_("No playlist found"))
+			return
+		obj = getNVDAObjectFromEvent(handle, 0, 0)
+		obj.setFocus()
+
 
 posRegister = AppModule.addPosTrackDetailScript
 currentRegister = AppModule.addCurrentTrackDetailScript

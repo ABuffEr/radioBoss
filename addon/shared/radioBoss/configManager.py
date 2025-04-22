@@ -11,6 +11,8 @@ confspec = {
 	"host": "string(default=127.0.0.1)",
 	"port": "integer(default=9000)",
 	"password": "string(default='')",
+	"infoSummary": 'string_list(default=list("Artist", "Title"))',
+	"infoOrderSummary": "string_list(default=list())",
 }
 addonName = addonHandler.getCodeAddon().manifest["name"]
 config.conf.spec[addonName] = confspec

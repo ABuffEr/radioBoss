@@ -4,7 +4,7 @@ This add-on provides various enhancements for RadioBOSS by [DJSoft.Net.][1]
 
 Majority of features requires you have enabled Remote API in RadioBOSS settings, and filled add-on settings accordingly.
 
-This add-on integrates the labelAutofinder module, that associates text labels with edit and combo boxes automagically.
+This add-on integrates the [labelAutofinderCore][2] module, that improves the sliders and associates labels with edit/combo boxes automagically.
 
 
 ## Gestures
@@ -29,11 +29,14 @@ Global only:
 
 App only:
 
+* jumps to log events;
+* jumps to playlist tree;
 * reports detail (artist, title, album...) of the track at focused position in the playlist (each detail can have a gesture);
 * views in a dialog all details of the track at focused position in the playlist.
 
 App & global:
 
+* reports a summary of previous/current/next track info (info can be customized in settings);
 * reports detail (artist, title, album...) of the current track (each detail can have a gesture);
 * reports elapsed time of the current track;
 * reports remaining time of the current track;
@@ -46,3 +49,4 @@ Notice that, to work correctly, gestures based on track at focused position requ
 
 
 [1]: https://www.djsoft.net
+[2]: https://github.com/ABuffEr/labelAutofinderCore
